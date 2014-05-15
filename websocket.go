@@ -2,13 +2,31 @@ package relay
 
 import (
 	"code.google.com/p/go.net/websocket"
+	"errors"
 	"github.com/fernet/fernet-go"
 	"net/http"
 	"time"
 )
 
-func WsDial(origin, url string, k *fernet.Key) (*FESession, error) {
-	ws, err := websocket.Dial(url, "", origin)
+var ErrNoShake = errors.New("Could not handshake")
+
+func WsDial(origin, url, what string, k *fernet.Key) (*FESession, error) {
+	// Add mutual authentication headers (What, Verify) to
+	// handshake.
+	config, err := websocket.NewConfig(url, origin)
+	if err != nil {
+		return nil, err
+	}
+
+	config.Header.Add("What", what)
+	tok, err := fernet.EncryptAndSign([]byte(what), k)
+	if err != nil {
+		return nil, err
+	}
+
+	config.Header.Add("Verify", string(tok))
+
+	ws, err := websocket.DialConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -20,13 +38,31 @@ func WsDial(origin, url string, k *fernet.Key) (*FESession, error) {
 }
 
 type WsServer interface {
-	KeySelect(*websocket.Conn) []*fernet.Key
+	KeySelect(*http.Request) []*fernet.Key
 	Handler(*BESession)
 }
 
 func WsHandler(s WsServer) http.Handler {
+	shake := func(c *websocket.Config, req *http.Request) error {
+		keys := s.KeySelect(req)
+		if keys == nil || len(keys) == 0 {
+			return ErrNoShake
+		}
+
+		return nil
+	}
+
 	hdlr := func(ws *websocket.Conn) {
-		keys := s.KeySelect(ws)
+		// The handshake already checked this for the purpose
+		// of fast-path rejection of the websocket upgrade,
+		// but it's hard to stash the resultant selected
+		// Fernet keys anywhere, so perform the same selection
+		// again; it seems chaep enough.
+		keys := s.KeySelect(ws.Request())
+		if keys == nil || len(keys) == 0 {
+			ws.Close()
+			return
+		}
 
 		sess := NewBESession(keys, time.Minute*15)
 		go sess.Run(ws)
@@ -34,6 +70,7 @@ func WsHandler(s WsServer) http.Handler {
 	}
 
 	return &websocket.Server{
-		Handler: hdlr,
+		Handshake: shake,
+		Handler:   hdlr,
 	}
 }

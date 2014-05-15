@@ -15,7 +15,7 @@ var addr = "127.0.0.1:12345"
 
 type RelayEchoServer struct{}
 
-func (s *RelayEchoServer) KeySelect(ws *websocket.Conn) []*fernet.Key {
+func (s *RelayEchoServer) KeySelect(req *http.Request) []*fernet.Key {
 	return []*fernet.Key{testKey}
 }
 
@@ -36,7 +36,8 @@ func serve(args []string) int {
 }
 
 func client(args []string) int {
-	fe, err := relay.WsDial("ws://localhost", "ws://localhost:12345", testKey)
+	fe, err := relay.WsDial("ws://localhost", "ws://localhost:12345",
+		"thing", testKey)
 	if err != nil {
 		log.Fatalln("relay.WDial: " + err.Error())
 	}
