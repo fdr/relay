@@ -1,7 +1,7 @@
 package main
 
 import (
-	"code.google.com/p/go.net/websocket"
+	"flag"
 	"github.com/fdr/relay"
 	"github.com/fernet/fernet-go"
 	"io"
@@ -47,13 +47,18 @@ func client(args []string) int {
 }
 
 func main() {
-	switch os.Args[1] {
+	flag.Parse()
+
+	switch flag.Arg(0) {
 	case "serve":
-		os.Exit(serve(os.Args[1:]))
+		os.Exit(serve(flag.Args()[1:]))
 	case "client":
-		os.Exit(client(os.Args[1:]))
+		os.Exit(client(flag.Args()[1:]))
+	case "":
+		log.Fatal("no subcommand specified.  " +
+			"Specify \"serve\" or \"client\".")
 	default:
-		log.Fatalf("invalid subcommand: %v", os.Args[1])
+		log.Fatalf("invalid subcommand: %v", flag.Args())
 	}
 }
 
