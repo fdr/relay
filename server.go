@@ -21,6 +21,12 @@ type ioPair struct {
 	err error
 }
 
+type BESessionDecoder interface {
+	io.WriterTo
+	Run(rwc io.ReadWriteCloser)
+	Keys() []*fernet.Key
+}
+
 type BESession struct {
 	k   []*fernet.Key
 	ttl time.Duration
@@ -35,6 +41,10 @@ func NewBESession(keys []*fernet.Key, ttl time.Duration) *BESession {
 		ttl:     ttl,
 		packets: make(chan *ioPair),
 	}
+}
+
+func (s *BESession) Keys() []*fernet.Key {
+	return s.k
 }
 
 func (s *BESession) WriteTo(w io.Writer) (n int64, err error) {

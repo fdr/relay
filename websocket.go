@@ -37,9 +37,14 @@ func WsDial(origin, url, what string, k *fernet.Key) (*FESession, error) {
 	return s, nil
 }
 
+type WsBESession struct {
+	BESession
+	Ws *websocket.Conn
+}
+
 type WsServer interface {
 	KeySelect(*http.Request) []*fernet.Key
-	Handler(*BESession)
+	Handler(*WsBESession)
 }
 
 func WsHandler(s WsServer) http.Handler {
@@ -64,7 +69,11 @@ func WsHandler(s WsServer) http.Handler {
 			return
 		}
 
-		sess := NewBESession(keys, time.Minute*15)
+		sess := &WsBESession{
+			BESession: *NewBESession(keys, time.Minute*15),
+			Ws:        ws,
+		}
+
 		go sess.Run(ws)
 		s.Handler(sess)
 	}

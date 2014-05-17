@@ -19,7 +19,7 @@ func (s *RelayEchoServer) KeySelect(req *http.Request) []*fernet.Key {
 	return []*fernet.Key{testKey}
 }
 
-func (s *RelayEchoServer) Handler(be *relay.BESession) {
+func (s *RelayEchoServer) Handler(be *relay.WsBESession) {
 	be.WriteTo(os.Stdout)
 }
 
