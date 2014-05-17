@@ -23,6 +23,7 @@ type ioPair struct {
 
 type BESessionDecoder interface {
 	io.WriterTo
+	io.Closer
 	Run(rwc io.ReadWriteCloser)
 	Keys() []*fernet.Key
 }
@@ -30,6 +31,7 @@ type BESessionDecoder interface {
 type BESession struct {
 	k   []*fernet.Key
 	ttl time.Duration
+	rwc io.ReadWriteCloser
 
 	packets chan *ioPair
 }
@@ -43,13 +45,22 @@ func NewBESession(keys []*fernet.Key, ttl time.Duration) *BESession {
 	}
 }
 
+func (s *BESession) Close() error {
+	err := s.rwc.Close()
+	close(s.packets)
+	return err
+}
+
 func (s *BESession) Keys() []*fernet.Key {
 	return s.k
 }
 
 func (s *BESession) WriteTo(w io.Writer) (n int64, err error) {
 	for {
-		p := <-s.packets
+		p, ok := <-s.packets
+		if !ok {
+			return n, nil
+		}
 
 		wrote, err := w.Write(p.buf)
 
@@ -69,6 +80,7 @@ func (s *BESession) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (s *BESession) Run(rwc io.ReadWriteCloser) {
+	s.rwc = rwc
 	c := core.NewBackendStream(rwc)
 	m := core.Message{}
 

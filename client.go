@@ -9,6 +9,7 @@ import (
 type FESession struct {
 	k fernet.Key
 
+	rwc      io.ReadWriteCloser
 	outbound chan []byte
 	writeErr chan error
 }
@@ -18,6 +19,12 @@ func NewFESession(key fernet.Key) *FESession {
 		k:        key,
 		outbound: make(chan []byte),
 	}
+}
+
+func (s *FESession) Close() error {
+	err := s.rwc.Close()
+	close(s.outbound)
+	return err
 }
 
 func (s *FESession) Write(p []byte) (n int, err error) {
@@ -32,6 +39,8 @@ func (s *FESession) Write(p []byte) (n int, err error) {
 }
 
 func (s *FESession) Run(rwc io.ReadWriteCloser) {
+	s.rwc = rwc
+
 	cleanup := func(err error) {
 		s.writeErr <- err
 		close(s.writeErr)
@@ -39,7 +48,10 @@ func (s *FESession) Run(rwc io.ReadWriteCloser) {
 
 	m := core.Message{}
 	for {
-		buf := <-s.outbound
+		buf, ok := <-s.outbound
+		if !ok {
+			return
+		}
 
 		tok, err := fernet.EncryptAndSign(buf, &s.k)
 		if err != nil {

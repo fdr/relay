@@ -52,4 +52,6 @@ func TestBEMessages(t *testing.T) {
 		t.Fatalf("Round trip of bytes fails\n"+
 			"expected:\n\t%s\nresults:\n\t%s", eb, rb)
 	}
+
+	sess.Close()
 }

@@ -30,6 +30,8 @@ func TestFEMessages(t *testing.T) {
 	if len(byts) == 0 {
 		t.FailNow()
 	}
+
+	sess.Close()
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -65,4 +67,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Round trip of bytes fails\n"+
 			"expected:\n\t%s\nresults:\n\t%s", eb, rb)
 	}
+
+	feSess.Close()
+	beSess.Close()
 }
